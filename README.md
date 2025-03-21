@@ -6,9 +6,9 @@
 
 This Ansible playbook automates the backup process for Mikrotik Router Board devices. It creates a temporary RAM disk (tmpfs) to minimize writes to the flash memory, thereby prolonging the flash storage's lifetime. The playbook uses an inventory file to define the IP addresses and login information of your devices. An example file (`inventory.ini.example`) is provided and should be renamed to `inventory.ini` before use.
 
-The playbook generates and saves both a `.backup` (binary) and a `.rsc` (text) file
+The playbook generates and saves both a `.backup` (binary) and a `.rsc` (text) file.
 
-### Open Taks
+### Open Tasks
 
 - Externalize variable definitions into the ini file so that `backup.yml` does not need to be modified.
 - Clean up the backup path based on a retention time.
@@ -17,8 +17,12 @@ The playbook generates and saves both a `.backup` (binary) and a `.rsc` (text) f
 
 1. Rename `inventory.ini.example` to `inventory.ini` and update it with your devices' IP addresses and login information.
 2. Run the playbook with the following command:
+   
    ```bash
    ansible-playbook backup.yml -i inventory.ini
+   ```
+
+---
 
 ## Deutsch
 
@@ -37,5 +41,8 @@ Das Playbook erstellt und sichert sowohl eine `.backup`-Datei (binär) als auch 
 
 1. Benenne `inventory.ini.example` in `inventory.ini` um und passe die Datei mit den IP-Adressen und Login-Informationen deiner Geräte an.
 2. Führe das Playbook mit folgendem Befehl aus:
+   
    ```bash
    ansible-playbook backup.yml -i inventory.ini
+   ```
+
