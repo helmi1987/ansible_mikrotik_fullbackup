@@ -1,0 +1,124 @@
+---
+- name: Backup MikroTik Router
+  hosts: mikrotik
+  gather_facts: no
+  tasks:
+    - name: Get RouterBoard Info's
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }}
+        /system routerboard print
+      delegate_to: localhost
+      register: routerboardinfo
+
+    - name: Get RouterBoard Identity
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }}
+        /system identity print
+      delegate_to: localhost
+      register: routerboardidentity
+
+    - name: Get facts from RouterBoard
+      set_fact:
+        routerboardinfos: "{{ routerboardinfo.stdout_lines | join('\n') | regex_findall('([\\w-]+):\\s*(\\S.*\\S|\\S)', '\\1:\\2') | list}}"
+        routerboardidentity: "{{ routerboardidentity.stdout_lines | join('\n') | regex_findall('([\\w-]+):\\s*(\\S.*\\S|\\S)', '\\1:\\2') | list}}"
+        date_time: "{{ now(utc=true,fmt='%Y-%m-%d_%H:%M') }}"
+
+    - name: Set RouterBoard variables
+      set_fact:
+        tik_model: "{{ dict(routerboardinfos)['model'] }}"
+        tik_version: "{{ dict(routerboardinfos)['current-firmware'] }}"
+        tik_identity: "{{ dict(routerboardidentity)['name'] }}"
+
+    - name: Set backuppath and filename
+      set_fact:
+        backup_name: "{{ date_time }}__{{ tik_identity }}__ROS-{{ tik_version }}__{{ tik_model }}.backup"
+        rsc_name: "{{ date_time }}__{{ tik_identity }}.rsc"
+        backup_path: "/root/backup/mikrotik/{{ inventory_hostname }}/"
+
+    - name: Create backup RAM Drive on MikroTik
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }} /disk add type=tmpfs tmpfs-max-size=1M slot=tmpBackup
+      delegate_to: localhost
+      ignore_errors: yes
+      register: tmpfs_result
+
+    - name: Create backup on MikroTik
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }} /system backup save name="/tmpBackup/{{ inventory_hostname }}"
+      delegate_to: localhost
+      register: backup_result
+
+    - name: Create rsc on MikroTik
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }} /export show-sensitive file="/tmpBackup/{{ inventory_hostname }}"
+      delegate_to: localhost
+      register: backup_result
+
+    - name: Create direcotry when it needs
+      ansible.builtin.file:
+        path: "{{ backup_path }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+
+    - name: Fetch backup file from MikroTik
+      ansible.builtin.command: >
+        sshpass -p "{{ ansible_ssh_pass }}" scp -o StrictHostKeyChecking=no  -P {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}:/tmpBackup/{{ inventory_hostname }}.backup "{{ backup_path }}{{ backup_name }}"
+      delegate_to: localhost
+      register: fetch_backup_result
+
+    - name: Fetch rsc file from MikroTik
+      ansible.builtin.command: >
+        sshpass -p "{{ ansible_ssh_pass }}" scp -o StrictHostKeyChecking=no  -P {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}:/tmpBackup/{{ inventory_hostname }}.rsc "{{ backup_path }}{{ rsc_name }}"
+      delegate_to: localhost
+      register: fetch_rsc_result
+
+    - name: Ensure backup file is present
+      ansible.builtin.stat:
+        path: "{{ backup_path }}{{ backup_name }}"
+      delegate_to: localhost
+      register: backup_file
+
+    - name: Ensure rsc file is present
+      ansible.builtin.stat:
+        path: "{{ backup_path }}{{ rsc_name }}"
+      delegate_to: localhost
+      register: rsc_file
+
+    - name: Fail if backup file is not present
+      ansible.builtin.fail:
+        msg: "Backup file was not created on the MikroTik router!"
+      when: not backup_file.stat.exists
+
+    - name: Fail if rsc file is not present
+      ansible.builtin.fail:
+        msg: "Rsc file was not created on the MikroTik router!"
+      when: not rsc_file.stat.exists
+
+#    - name: Remove old backup files on MikroTik
+#      ansible.builtin.command: >
+#        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "file remove tmpBackup/{{ inventory_hostname }}.backup"
+#      delegate_to: localhost
+#      register: cleanup_backup_result
+#      ignore_errors: yes
+
+#    - name: Remove old backup files on MikroTik
+#      ansible.builtin.command: >
+#        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "file remove tmpBackup/{{ inventory_hostname }}.rsc"
+#      delegate_to: localhost
+#      register: cleanup_rsc_result
+#      ignore_errors: yes
+
+    - name: Remove RAM disk on MikroTik
+      ansible.builtin.command: >
+        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "/disk remove tmpBackup"
+      delegate_to: localhost
+      register: cleanup_rsc_result
+      ignore_errors: yes
+
+    - name: List files on MikroTik after cleanup
+      ansible.builtin.command: >
+        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "file print"
+      delegate_to: localhost
+      register: list_files_after_cleanup_result
+      ignore_errors: yes
