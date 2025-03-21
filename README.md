@@ -8,7 +8,8 @@ This Ansible playbook automates the backup process for Mikrotik Router Board dev
 
 ### Open Taks
 
-- Externalize variable definitions in the ini file so that `backup.yml` does not need to be modified.
+- Externalize variable definitions into the ini file so that `backup.yml` does not need to be modified.
+- Clean up the backup path based on a retention time.
 
 ### Usage
 
@@ -25,7 +26,8 @@ Dieses Ansible-Playbook automatisiert den Backup-Prozess für Mikrotik RouterBoa
 
 ### Offene Aufgaben
 
-- Variablendefinitionen in der ini-Datei auslagern, sodass `backup.yml` nicht angepasst werden muss.
+- Variablendefinitionen in die ini-Datei auslagern, sodass `backup.yml` nicht angepasst werden muss.
+- Bereinigung des Backup-Pfades anhand einer Aufbewahrungsdauer.
 
 ### Nutzung
 
