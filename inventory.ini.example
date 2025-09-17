@@ -1,2 +1,7 @@
 [mikrotik]
-192.168.88.1 ansible_user=admin ansible_ssh_pass='mySecurePassword' ansible_port=22 backup_path=/tmp/backup
+192.168.88.1 ansible_ssh_pass='mySecurePassword'
+
+[mikrotik:vars]
+backup_path=/tmp/backup
+ansible_user=admin
+ansible_port=22
