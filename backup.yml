@@ -22,6 +22,7 @@
         routerboardinfos: "{{ routerboardinfo.stdout_lines | join('\n') | regex_findall('([\\w-]+):\\s*(\\S.*\\S|\\S)', '\\1:\\2') | list}}"
         routerboardidentity: "{{ routerboardidentity.stdout_lines | join('\n') | regex_findall('([\\w-]+):\\s*(\\S.*\\S|\\S)', '\\1:\\2') | list}}"
         date: "{{ now(utc=true,fmt='%Y-%m-%d') }}"
+        month: "{{ now(utc=true,fmt='%m-%B') }}"
         year: "{{ now(utc=true,fmt='%Y') }}"
 
     - name: Set RouterBoard variables
@@ -34,7 +35,7 @@
       set_fact:
         backup_name: "{{ tik_identity }}__ROS-{{ tik_version }}__{{ tik_model }}.backup"
         rsc_name: "{{ tik_identity }}.rsc"
-        backup_path: "{{ backup_path }}/{{ inventory_hostname }}/{{ year }}/{{ date }}/"
+        backup_path: "{{ backup_path }}/{{ inventory_hostname }}/{{ year }}/{{ month }}/{{ date }}/"
 
     - name: Create backup RAM Drive on MikroTik
       ansible.builtin.command: >
