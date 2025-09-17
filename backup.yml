@@ -33,7 +33,7 @@
       set_fact:
         backup_name: "{{ date_time }}__{{ tik_identity }}__ROS-{{ tik_version }}__{{ tik_model }}.backup"
         rsc_name: "{{ date_time }}__{{ tik_identity }}.rsc"
-        backup_path: "/root/backup/mikrotik/{{ inventory_hostname }}/"
+        backup_path: "{{ backup_path }}/{{ inventory_hostname }}/"
 
     - name: Create backup RAM Drive on MikroTik
       ansible.builtin.command: >
