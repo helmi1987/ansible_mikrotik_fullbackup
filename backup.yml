@@ -21,7 +21,8 @@
       set_fact:
         routerboardinfos: "{{ routerboardinfo.stdout_lines | join('\n') | regex_findall('([\\w-]+):\\s*(\\S.*\\S|\\S)', '\\1:\\2') | list}}"
         routerboardidentity: "{{ routerboardidentity.stdout_lines | join('\n') | regex_findall('([\\w-]+):\\s*(\\S.*\\S|\\S)', '\\1:\\2') | list}}"
-        date_time: "{{ now(utc=true,fmt='%Y-%m-%d_%H:%M') }}"
+        date: "{{ now(utc=true,fmt='%Y-%m-%d') }}"
+        year: "{{ now(utc=true,fmt='%Y') }}"
 
     - name: Set RouterBoard variables
       set_fact:
