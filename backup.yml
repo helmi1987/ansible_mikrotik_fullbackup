@@ -52,7 +52,7 @@
 
     - name: Create rsc on MikroTik
       ansible.builtin.command: >
-        sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }} /export show-sensitive file="/tmpBackup/{{ inventory_hostname }}"
+        sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }} /export show-sensitive file="tmpBackup/{{ inventory_hostname }}"
       delegate_to: localhost
       register: backup_result
 
