@@ -53,7 +53,7 @@
       ignore_errors: yes
       register: tmpfs_result
 
-   - name: Remove all files in tmpBackup on MikroTik
+    - name: Remove all files in tmpBackup on MikroTik
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} 'file remove [/file find where name~\"tmpBackup/*\"]'
       delegate_to: localhost
