@@ -37,14 +37,14 @@
         rsc_name: "{{ tik_identity }}.rsc"
         backup_path: "{{ backup_path }}/{{ inventory_hostname }}/{{ year }}/{{ month }}/{{ date }}/"
 
-    - name: Remove RAM disk on MikroTik no Errors
-      ansible.builtin.command: >
-        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "/disk remove tmpBackup"
-      delegate_to: localhost
-      register: cleanup
-      ignore_errors: yes
-      changed_when: false
-      no_log: true
+    #- name: Remove RAM disk on MikroTik no Errors
+    #  ansible.builtin.command: >
+    #    sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "/disk remove tmpBackup"
+    #  delegate_to: localhost
+    #  register: cleanup
+    #  ignore_errors: yes
+    #  changed_when: false
+    #  no_log: true
 
     - name: Create backup RAM Drive on MikroTik
       ansible.builtin.command: >
@@ -52,6 +52,13 @@
       delegate_to: localhost
       ignore_errors: no
       register: tmpfs_result
+
+   - name: Remove all files in tmpBackup on MikroTik
+      ansible.builtin.command: >
+        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "file remove [/file find where name~\"tmpBackup/*\"]"
+      delegate_to: localhost
+      register: cleanup_backup_result
+      ignore_errors: yes
 
     - name: Create backup on MikroTik
       ansible.builtin.command: >
