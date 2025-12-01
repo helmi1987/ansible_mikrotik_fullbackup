@@ -39,7 +39,7 @@
 
     - name: Remove RAM disk on MikroTik no Errors
       ansible.builtin.command: >
-        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "/disk remove tmpBackup" || true
+        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "/disk remove tmpBackup || true"
       delegate_to: localhost
       ignore_errors: yes
       changed_when: false
