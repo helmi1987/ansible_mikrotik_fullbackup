@@ -50,7 +50,7 @@
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }} /disk add type=tmpfs tmpfs-max-size=1M slot=tmpBackup
       delegate_to: localhost
-      ignore_errors: no
+      ignore_errors: yes
       register: tmpfs_result
 
    - name: Remove all files in tmpBackup on MikroTik
