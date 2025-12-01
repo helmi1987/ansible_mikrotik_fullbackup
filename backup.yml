@@ -37,12 +37,14 @@
         rsc_name: "{{ tik_identity }}.rsc"
         backup_path: "{{ backup_path }}/{{ inventory_hostname }}/{{ year }}/{{ month }}/{{ date }}/"
 
-    - name: Remove RAM disk on MikroTik
+    - name: Remove RAM disk on MikroTik no Errors
       ansible.builtin.command: >
         sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "/disk remove tmpBackup"
       delegate_to: localhost
       register: cleanup_rsc_result
       ignore_errors: yes
+      changed_when: false
+      no_log: true
 
     - name: Create backup RAM Drive on MikroTik
       ansible.builtin.command: >
