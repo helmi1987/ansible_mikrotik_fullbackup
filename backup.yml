@@ -17,19 +17,27 @@
       delegate_to: localhost
       register: routerboardidentity
 
+    - name: Get System Resources (Fallback fuer x86)
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }}
+        /system resource print
+      delegate_to: localhost
+      register: systemresourceinfo
+
     - name: Get facts from RouterBoard
       set_fact:
-        routerboardinfos: "{{ routerboardinfo.stdout_lines | join('\n') | regex_findall('([\\w-]+):\\s*(\\S.*\\S|\\S)', '\\1:\\2') | list}}"
-        routerboardidentity: "{{ routerboardidentity.stdout_lines | join('\n') | regex_findall('([\\w-]+):\\s*(\\S.*\\S|\\S)', '\\1:\\2') | list}}"
+        routerboardinfos: "{{ dict(routerboardinfo.stdout_lines | join('\n') | regex_findall('([\\w-]+):\\s*(\\S.*\\S|\\S)', '\\1:\\2')) }}"
+        routerboardidentity: "{{ dict(routerboardidentity.stdout_lines | join('\n') | regex_findall('([\\w-]+):\\s*(\\S.*\\S|\\S)', '\\1:\\2')) }}"
+        systemresources: "{{ dict(systemresourceinfo.stdout_lines | join('\n') | regex_findall('([\\w-]+):\\s*(\\S.*\\S|\\S)', '\\1:\\2')) }}"
         date: "{{ now(utc=true,fmt='%Y-%m-%d') }}"
         month: "{{ now(utc=true,fmt='%m-%B') }}"
         year: "{{ now(utc=true,fmt='%Y') }}"
 
     - name: Set RouterBoard variables
       set_fact:
-        tik_model: "{{ dict(routerboardinfos)['model'] }}"
-        tik_version: "{{ dict(routerboardinfos)['current-firmware'] }}"
-        tik_identity: "{{ dict(routerboardidentity)['name'] }}"
+        tik_model: "{{ routerboardinfos['model'] | default(systemresources['board-name'] | default('x86')) }}"
+        tik_version: "{{ routerboardinfos['current-firmware'] | default(systemresources['version'] | default('unknown')) }}"
+        tik_identity: "{{ routerboardidentity['name'] | default(inventory_hostname) }}"
 
     - name: Set backuppath and filename
       set_fact:
