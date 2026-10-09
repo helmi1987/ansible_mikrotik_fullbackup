@@ -84,8 +84,8 @@ ansible-playbook backup.yml -i inventory.ini
 6. Create target directory on the control node
 7. Copy both files via `scp`
 8. Fail if one of the files is missing locally
-9. Remove RAM disk `tmpBackup`
-10. List files on the device (`/file print`)
+9. Remove RAM disk `tmpBackup` (errors ignored)
+10. List files on the device (`/file print`); the output is registered only, not printed
 
 ### Known limitations
 
@@ -183,8 +183,8 @@ ansible-playbook backup.yml -i inventory.ini
 6. Zielverzeichnis auf dem Control-Node erstellen
 7. Beide Dateien per `scp` kopieren
 8. Abbruch, falls eine der Dateien lokal fehlt
-9. RAM-Disk `tmpBackup` entfernen
-10. Dateien auf dem Gerät auflisten (`/file print`)
+9. RAM-Disk `tmpBackup` entfernen (Fehler ignoriert)
+10. Dateien auf dem Gerät auflisten (`/file print`); die Ausgabe wird nur registriert, nicht angezeigt
 
 ### Bekannte Einschränkungen
 
