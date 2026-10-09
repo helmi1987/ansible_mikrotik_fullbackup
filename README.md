@@ -18,7 +18,7 @@ Per device, two files are created:
 Values for the filename:
 
 - `identity`: `/system identity print` → `name` (fallback: inventory hostname)
-- `version`: `/system routerboard print` → `current-firmware` (fallback: `/system resource print` → `version`, then `unknown`)
+- `version`: `/system resource print` → `version`, first token only (e.g. `7.15.3`; fallback: `unknown`)
 - `model`: `/system routerboard print` → `model` (fallback: `/system resource print` → `board-name`, then `x86`)
 
 The fallbacks cover x86/CHR installations without RouterBOARD information.
@@ -91,9 +91,7 @@ ansible-playbook backup.yml -i inventory.ini
 
 - `StrictHostKeyChecking=no` is used for all SSH/SCP connections.
 - The password is passed on the command line (`sshpass -p`) and is visible in the process list; `no_log` is not set.
-- The tasks "Remove all files in tmpBackup", "Remove RAM disk" and "List files" do not pass `-p {{ ansible_port }}` and therefore always use port 22.
 - RAM disk is limited to 1 MB (`tmpfs-max-size=1M`); larger backups fail.
-- `version` in the filename is the RouterBOOT firmware (`current-firmware`), not necessarily the RouterOS version.
 
 ### Open tasks
 
@@ -119,7 +117,7 @@ Pro Gerät werden zwei Dateien erstellt:
 Werte für den Dateinamen:
 
 - `identity`: `/system identity print` → `name` (Fallback: Inventory-Hostname)
-- `version`: `/system routerboard print` → `current-firmware` (Fallback: `/system resource print` → `version`, danach `unknown`)
+- `version`: `/system resource print` → `version`, nur erster Teil (z. B. `7.15.3`; Fallback: `unknown`)
 - `model`: `/system routerboard print` → `model` (Fallback: `/system resource print` → `board-name`, danach `x86`)
 
 Die Fallbacks decken x86/CHR-Installationen ohne RouterBOARD-Informationen ab.
@@ -192,9 +190,7 @@ ansible-playbook backup.yml -i inventory.ini
 
 - Für alle SSH/SCP-Verbindungen wird `StrictHostKeyChecking=no` verwendet.
 - Das Passwort wird per Kommandozeile übergeben (`sshpass -p`) und ist in der Prozessliste sichtbar; `no_log` ist nicht gesetzt.
-- Die Tasks "Remove all files in tmpBackup", "Remove RAM disk" und "List files" übergeben kein `-p {{ ansible_port }}` und verwenden daher immer Port 22.
 - Die RAM-Disk ist auf 1 MB begrenzt (`tmpfs-max-size=1M`); grössere Backups schlagen fehl.
-- `version` im Dateinamen ist die RouterBOOT-Firmware (`current-firmware`), nicht zwingend die RouterOS-Version.
 
 ### Offene Aufgaben
 

@@ -36,7 +36,7 @@
     - name: Set RouterBoard variables
       set_fact:
         tik_model: "{{ routerboardinfos['model'] | default(systemresources['board-name'] | default('x86')) }}"
-        tik_version: "{{ routerboardinfos['current-firmware'] | default(systemresources['version'] | default('unknown')) }}"
+        tik_version: "{{ (systemresources['version'] | default('unknown')).split(' ')[0] }}"
         tik_identity: "{{ routerboardidentity['name'] | default(inventory_hostname) }}"
 
     - name: Set backuppath and filename
@@ -47,7 +47,7 @@
 
     #- name: Remove RAM disk on MikroTik no Errors
     #  ansible.builtin.command: >
-    #    sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "/disk remove tmpBackup"
+    #    sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }} "/disk remove tmpBackup"
     #  delegate_to: localhost
     #  register: cleanup
     #  ignore_errors: yes
@@ -63,7 +63,7 @@
 
     - name: Remove all files in tmpBackup on MikroTik
       ansible.builtin.command: >
-        sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} /file remove [find where name=/tmpBackup/*]
+        sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }} "/file remove [find where name~\"^/?tmpBackup/\"]"
       delegate_to: localhost
       register: cleanup_backup_result
       ignore_errors: yes
@@ -78,9 +78,9 @@
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }} /export show-sensitive file="tmpBackup/{{ inventory_hostname }}"
       delegate_to: localhost
-      register: backup_result
+      register: rsc_result
 
-    - name: Create direcotry when it needs
+    - name: Create directory if needed
       ansible.builtin.file:
         path: "{{ backup_path }}"
         state: directory
@@ -137,14 +137,14 @@
 
     - name: Remove RAM disk on MikroTik
       ansible.builtin.command: >
-        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "/disk remove tmpBackup"
+        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }} "/disk remove tmpBackup"
       delegate_to: localhost
       register: cleanup_rsc_result
       ignore_errors: yes
 
     - name: List files on MikroTik after cleanup
       ansible.builtin.command: >
-        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} "file print"
+        sshpass -p "{{ ansible_ssh_pass }}" ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} -p {{ ansible_port }} "file print"
       delegate_to: localhost
       register: list_files_after_cleanup_result
       ignore_errors: yes
