@@ -59,13 +59,12 @@
       ansible.builtin.set_fact:
         rb_current_fw: >-
           {{ (rb_firmware_info.stdout | default(''))
-             | regex_search('current-firmware[:] (.*)', '\\1')
+             | regex_findall('current-firmware[:] (.*)')
              | first | default('', true) }}
         rb_upgrade_fw: >-
           {{ (rb_firmware_info.stdout | default(''))
-             | regex_search('upgrade-firmware[:] (.*)', '\\1')
+             | regex_findall('upgrade-firmware[:] (.*)')
              | first | default('', true) }}
-      when: has_routerboard
 
     - name: Skip RouterBOARD firmware update on x86 builds
       ansible.builtin.debug:
@@ -120,24 +119,25 @@
       delegate_to: localhost
       no_log: true
 
+    - name: Extract final RouterOS version
+      ansible.builtin.set_fact:
+        final_ros_version: >-
+          {{ (ros_version_check.stdout | default(''))
+             | regex_findall('version[:] (.*)')
+             | first | default('unknown', true) }}
+        final_rb_version: >-
+          {{ (rb_firmware_check.stdout | default(''))
+             | regex_findall('current-firmware[:] (.*)')
+             | first | default('unknown', true) }}
+
     - name: Show final RouterOS version
       ansible.builtin.debug:
-        msg: >-
-          RouterOS: {{
-            (ros_version_check.stdout | default(''))
-            | regex_search('version[:] (.*)', '\\1')
-            | first | default('unknown', true)
-          }}
+        msg: "RouterOS: {{ final_ros_version }}"
 
     - name: Show final RouterBOARD firmware
       ansible.builtin.debug:
         msg: >-
           RouterBOARD: {{
             has_routerboard | bool
-            | ternary(
-                (rb_firmware_check.stdout | default(''))
-                | regex_search('current-firmware[:] (.*)', '\\1')
-                | first | default('unknown', true),
-                'not applicable (no RouterBOARD / x86)'
-              )
+            | ternary(final_rb_version, 'not applicable (no RouterBOARD / x86)')
           }}
