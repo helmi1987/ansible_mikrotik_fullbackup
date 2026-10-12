@@ -25,10 +25,8 @@
       ansible.builtin.set_fact:
         ros_update_available: >-
           {{
-            ('status:' in (ros_update_check.stdout | default('')))
-            and ('no new version' not in (ros_update_check.stdout | default('')))
-            and ('finding out' not in (ros_update_check.stdout | default('')))
-            and ('could not' not in (ros_update_check.stdout | default('')))
+            ('new version is available' in (ros_update_check.stdout | default('') | lower))
+            and ('could not' not in (ros_update_check.stdout | default('') | lower))
           }}
 
     - name: Show decision for RouterOS update
