@@ -65,7 +65,7 @@
         port: "{{ ansible_port }}"
         state: stopped
         delay: 5
-        timeout: 60
+        timeout: 600
       when: ros_update_install is changed
       delegate_to: localhost
       ignore_errors: true
@@ -76,7 +76,7 @@
         port: "{{ ansible_port }}"
         state: started
         delay: 5
-        timeout: 300
+        timeout: 600
       when: ros_update_install is changed
       delegate_to: localhost
 
@@ -175,7 +175,7 @@
         port: "{{ ansible_port }}"
         state: stopped
         delay: 5
-        timeout: 60
+        timeout: 600
       when:
         - rb_reboot is defined
         - rb_reboot is changed
@@ -188,7 +188,7 @@
         port: "{{ ansible_port }}"
         state: started
         delay: 5
-        timeout: 300
+        timeout: 600
       when:
         - rb_reboot is defined
         - rb_reboot is changed
