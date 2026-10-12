@@ -1,17 +1,13 @@
 ---
-- name: MikroTik RouterOS & RouterBOARD Update
+- name: MikroTik RouterOS and RouterBOARD update
   hosts: mikrotik
   gather_facts: no
-  serial: 1  # Wichtig: Serielle Ausführung, um PoE-Ausfälle zu vermeiden
+  serial: 1  # Serial execution to avoid PoE-related outages of dependent devices
 
   tasks:
-    # 1. Backup vor dem Update (optional, aber empfohlen)
-    - name: Backup vor dem Update erstellen
-      ansible.builtin.include_tasks: backup.yml
-      when: create_backup_before_update | default(true)
+    # --- RouterOS update ---
 
-    # 2. RouterOS-Update durchführen
-    - name: Prüfen, ob ein RouterOS-Update verfügbar ist
+    - name: Check for available RouterOS update
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}'
         ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
@@ -21,7 +17,7 @@
       delegate_to: localhost
       no_log: true
 
-    - name: RouterOS-Update installieren (falls verfügbar)
+    - name: Install RouterOS update if a new version is available
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}'
         ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
@@ -31,7 +27,7 @@
       delegate_to: localhost
       no_log: true
 
-    - name: Warten auf Neustart nach RouterOS-Update
+    - name: Wait for device to come back after RouterOS update reboot
       ansible.builtin.wait_for:
         host: "{{ inventory_hostname }}"
         port: "{{ ansible_port }}"
@@ -40,30 +36,42 @@
       when: ros_update_install is changed
       delegate_to: localhost
 
-    # 3. RouterBOARD-Firmware-Update durchführen
-    - name: Prüfen, ob ein RouterBOARD-Firmware-Update verfügbar ist
+    # --- RouterBOARD firmware update ---
+
+    - name: Read RouterBOARD firmware information (fails gracefully on x86)
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}'
         ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
         '/system routerboard print'
       register: rb_firmware_info
       changed_when: false
+      failed_when: false
       delegate_to: localhost
       no_log: true
 
-    - name: RouterBOARD-Firmware-Update durchführen
+    - name: Determine whether the device has a RouterBOARD (x86 does not)
+      ansible.builtin.set_fact:
+        has_routerboard: "{{ 'current-firmware' in (rb_firmware_info.stdout | default('')) }}"
+
+    - name: Skip RouterBOARD firmware update on x86 builds
+      ansible.builtin.debug:
+        msg: "No RouterBOARD detected (e.g. x86 build) - skipping firmware update."
+      when: not has_routerboard
+
+    - name: Upgrade RouterBOARD firmware when upgrade firmware differs
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}'
         ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
         '/system routerboard upgrade'
-      when: >
-        (rb_firmware_info.stdout | regex_search('current-firmware: (.*)') | regex_replace('current-firmware: ', '')) !=
-        (rb_firmware_info.stdout | regex_search('upgrade-firmware: (.*)') | regex_replace('upgrade-firmware: ', ''))
+      when:
+        - has_routerboard
+        - (rb_firmware_info.stdout | regex_search('current-firmware: (.*)') | regex_replace('current-firmware: ', '')) !=
+          (rb_firmware_info.stdout | regex_search('upgrade-firmware: (.*)') | regex_replace('upgrade-firmware: ', ''))
       register: rb_firmware_upgrade
       delegate_to: localhost
       no_log: true
 
-    - name: Warten auf Neustart nach RouterBOARD-Update
+    - name: Wait for device to come back after RouterBOARD update reboot
       ansible.builtin.wait_for:
         host: "{{ inventory_hostname }}"
         port: "{{ ansible_port }}"
@@ -72,8 +80,9 @@
       when: rb_firmware_upgrade is changed
       delegate_to: localhost
 
-    # 4. Kontrolle: Versionen prüfen
-    - name: Aktuelle RouterOS-Version auslesen
+    # --- Final verification ---
+
+    - name: Read current RouterOS version
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}'
         ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
@@ -83,18 +92,29 @@
       delegate_to: localhost
       no_log: true
 
-    - name: Aktuelle RouterBOARD-Firmware auslesen
+    - name: Read current RouterBOARD firmware (fails gracefully on x86)
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}'
         ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
         '/system routerboard print'
       register: rb_firmware_check
       changed_when: false
+      failed_when: false
       delegate_to: localhost
       no_log: true
 
-    - name: Ergebnis anzeigen
+    - name: Show final update result
       ansible.builtin.debug:
-        msg: >
-          RouterOS-Version: {{ ros_version_check.stdout | regex_search('version: (.*)') | regex_replace('version: ', '') }},
-          RouterBOARD-Firmware: {{ rb_firmware_check.stdout | regex_search('current-firmware: (.*)') | regex_replace('current-firmware: ', '') }}
+        msg:
+          RouterOS: >-
+            {{ ros_version_check.stdout
+               | regex_search('version: (.*)')
+               | regex_replace('version: ', '') }}
+          RouterBOARD: >-
+            {{ has_routerboard
+               | ternary(
+                   (rb_firmware_check.stdout
+                    | regex_search('current-firmware: (.*)')
+                    | regex_replace('current-firmware: ', '')),
+                   'not applicable (no RouterBOARD / x86)'
+                 ) }}
