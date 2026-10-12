@@ -47,7 +47,7 @@
       ansible.builtin.wait_for:
         host: "{{ inventory_hostname }}"
         port: "{{ ansible_port }}"
-        delay: 30
+        delay: 90
         timeout: 300
       when: ros_update_install is changed
       delegate_to: localhost
@@ -99,7 +99,7 @@
         msg: "No RouterBOARD detected (e.g. x86 build) - skipping firmware update."
       when: not has_routerboard
 
-    - name: Upgrade RouterBOARD firmware when upgrade firmware differs
+    - name: Stage RouterBOARD firmware upgrade when it differs
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}'
         ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
@@ -113,13 +113,27 @@
       delegate_to: localhost
       no_log: true
 
-    - name: Wait for device to come back after RouterBOARD update reboot
+    - name: Reboot device to apply RouterBOARD firmware
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}'
+        ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
+        '/system reboot'
+      when:
+        - rb_firmware_upgrade is defined
+        - rb_firmware_upgrade is changed
+      register: rb_reboot
+      delegate_to: localhost
+      no_log: true
+
+    - name: Wait for device to be back after RouterBOARD firmware reboot
       ansible.builtin.wait_for:
         host: "{{ inventory_hostname }}"
         port: "{{ ansible_port }}"
-        delay: 30
+        delay: 90
         timeout: 300
-      when: rb_firmware_upgrade is changed
+      when:
+        - rb_reboot is defined
+        - rb_reboot is changed
       delegate_to: localhost
 
     # --- Final verification ---
