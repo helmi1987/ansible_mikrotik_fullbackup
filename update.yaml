@@ -7,12 +7,28 @@
   tasks:
     # --- RouterOS update ---
 
-    - name: Check for available RouterOS update (with internal wait)
+    - name: Trigger RouterOS update check (returns immediately)
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}'
         ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
-        '/system package update check-for-updates once; :delay 10s; /system package update print'
+        '/system package update check-for-updates once'
+      register: ros_update_trigger
+      changed_when: false
+      check_mode: false
+      delegate_to: localhost
+      no_log: true
+
+    - name: Poll RouterOS update status until the check has finished
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}'
+        ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
+        '/system package update print'
       register: ros_update_check
+      until:
+        - "'status:' in ros_update_check.stdout"
+        - "'finding out latest version' not in (ros_update_check.stdout | lower)"
+      retries: 20
+      delay: 3
       changed_when: false
       check_mode: false
       delegate_to: localhost
