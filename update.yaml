@@ -43,14 +43,41 @@
       delegate_to: localhost
       no_log: true
 
-    - name: Wait for device to come back after RouterOS update reboot
+    - name: Wait until SSH port closes (reboot started after RouterOS update)
       ansible.builtin.wait_for:
         host: "{{ inventory_hostname }}"
         port: "{{ ansible_port }}"
-        delay: 90
+        state: stopped
+        delay: 5
+        timeout: 60
+      when: ros_update_install is changed
+      delegate_to: localhost
+      ignore_errors: true
+
+    - name: Wait until SSH port is back (RouterOS update finished)
+      ansible.builtin.wait_for:
+        host: "{{ inventory_hostname }}"
+        port: "{{ ansible_port }}"
+        state: started
+        delay: 5
         timeout: 300
       when: ros_update_install is changed
       delegate_to: localhost
+
+    - name: Wait until RouterOS is really usable after RouterOS update
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}'
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5
+        -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
+        '/system identity print'
+      register: ros_ready
+      until: ros_ready.rc == 0
+      retries: 30
+      delay: 5
+      changed_when: false
+      when: ros_update_install is changed
+      delegate_to: localhost
+      no_log: true
 
     # --- RouterBOARD firmware update ---
 
@@ -122,19 +149,51 @@
         - rb_firmware_upgrade is defined
         - rb_firmware_upgrade is changed
       register: rb_reboot
+      failed_when: false
       delegate_to: localhost
       no_log: true
 
-    - name: Wait for device to be back after RouterBOARD firmware reboot
+    - name: Wait until SSH port closes (reboot started after RouterBOARD update)
       ansible.builtin.wait_for:
         host: "{{ inventory_hostname }}"
         port: "{{ ansible_port }}"
-        delay: 90
+        state: stopped
+        delay: 5
+        timeout: 60
+      when:
+        - rb_reboot is defined
+        - rb_reboot is changed
+      delegate_to: localhost
+      ignore_errors: true
+
+    - name: Wait until SSH port is back (RouterBOARD update finished)
+      ansible.builtin.wait_for:
+        host: "{{ inventory_hostname }}"
+        port: "{{ ansible_port }}"
+        state: started
+        delay: 5
         timeout: 300
       when:
         - rb_reboot is defined
         - rb_reboot is changed
       delegate_to: localhost
+
+    - name: Wait until RouterOS is really usable after RouterBOARD update
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}'
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5
+        -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
+        '/system identity print'
+      register: rb_ready
+      until: rb_ready.rc == 0
+      retries: 30
+      delay: 5
+      changed_when: false
+      when:
+        - rb_reboot is defined
+        - rb_reboot is changed
+      delegate_to: localhost
+      no_log: true
 
     # --- Final verification ---
 
