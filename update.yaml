@@ -14,6 +14,7 @@
         '/system package update check-for-updates once'
       register: ros_update_check
       changed_when: false
+      check_mode: false
       delegate_to: localhost
       no_log: true
 
@@ -22,7 +23,7 @@
         sshpass -p '{{ ansible_ssh_pass }}'
         ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
         '/system package update install'
-      when: "'status: new version is available' in ros_update_check.stdout"
+      when: "'status: new version is available' in (ros_update_check.stdout | default(''))"
       register: ros_update_install
       delegate_to: localhost
       no_log: true
@@ -46,6 +47,7 @@
       register: rb_firmware_info
       changed_when: false
       failed_when: false
+      check_mode: false
       delegate_to: localhost
       no_log: true
 
@@ -55,8 +57,14 @@
 
     - name: Extract current and upgrade RouterBOARD firmware versions
       ansible.builtin.set_fact:
-        rb_current_fw: "{{ rb_firmware_info.stdout | regex_search('current-firmware[:] (.*)', '\\1') | first | default('') }}"
-        rb_upgrade_fw: "{{ rb_firmware_info.stdout | regex_search('upgrade-firmware[:] (.*)', '\\1') | first | default('') }}"
+        rb_current_fw: >-
+          {{ (rb_firmware_info.stdout | default(''))
+             | regex_search('current-firmware[:] (.*)', '\\1')
+             | first | default('', true) }}
+        rb_upgrade_fw: >-
+          {{ (rb_firmware_info.stdout | default(''))
+             | regex_search('upgrade-firmware[:] (.*)', '\\1')
+             | first | default('', true) }}
       when: has_routerboard
 
     - name: Skip RouterBOARD firmware update on x86 builds
@@ -71,6 +79,8 @@
         '/system routerboard upgrade'
       when:
         - has_routerboard
+        - rb_current_fw | length > 0
+        - rb_upgrade_fw | length > 0
         - rb_current_fw != rb_upgrade_fw
       register: rb_firmware_upgrade
       delegate_to: localhost
@@ -94,6 +104,7 @@
         '/system resource print'
       register: ros_version_check
       changed_when: false
+      check_mode: false
       delegate_to: localhost
       no_log: true
 
@@ -105,21 +116,28 @@
       register: rb_firmware_check
       changed_when: false
       failed_when: false
+      check_mode: false
       delegate_to: localhost
       no_log: true
 
-    - name: Show final update result
+    - name: Show final RouterOS version
       ansible.builtin.debug:
-        msg:
-          RouterOS: >-
-            {{ ros_version_check.stdout
-               | regex_search('version[:] (.*)', '\\1')
-               | first | default('unknown') }}
-          RouterBOARD: >-
-            {{ has_routerboard
-               | ternary(
-                   (rb_firmware_check.stdout
-                    | regex_search('current-firmware[:] (.*)', '\\1')
-                    | first | default('unknown')),
-                   'not applicable (no RouterBOARD / x86)'
-                 ) }}
+        msg: >-
+          RouterOS: {{
+            (ros_version_check.stdout | default(''))
+            | regex_search('version[:] (.*)', '\\1')
+            | first | default('unknown', true)
+          }}
+
+    - name: Show final RouterBOARD firmware
+      ansible.builtin.debug:
+        msg: >-
+          RouterBOARD: {{
+            has_routerboard | bool
+            | ternary(
+                (rb_firmware_check.stdout | default(''))
+                | regex_search('current-firmware[:] (.*)', '\\1')
+                | first | default('unknown', true),
+                'not applicable (no RouterBOARD / x86)'
+              )
+          }}
