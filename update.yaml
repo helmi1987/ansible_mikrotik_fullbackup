@@ -16,7 +16,10 @@
       changed_when: false
       check_mode: false
       delegate_to: localhost
-      no_log: true
+
+    - name: Show RouterOS update check result
+      ansible.builtin.debug:
+        msg: "{{ ros_update_check.stdout_lines | default([]) }}"
 
     - name: Install RouterOS update if a new version is available
       ansible.builtin.command: >
@@ -49,7 +52,6 @@
       failed_when: false
       check_mode: false
       delegate_to: localhost
-      no_log: true
 
     - name: Determine whether the device has a RouterBOARD (x86 does not)
       ansible.builtin.set_fact:
@@ -60,11 +62,25 @@
         rb_current_fw: >-
           {{ (rb_firmware_info.stdout | default(''))
              | regex_findall('current-firmware[:] (.*)')
-             | first | default('', true) }}
+             | first | default('', true) | trim }}
         rb_upgrade_fw: >-
           {{ (rb_firmware_info.stdout | default(''))
              | regex_findall('upgrade-firmware[:] (.*)')
-             | first | default('', true) }}
+             | first | default('', true) | trim }}
+
+    - name: Show RouterBOARD firmware state
+      ansible.builtin.debug:
+        msg:
+          has_routerboard: "{{ has_routerboard }}"
+          current_firmware: "{{ rb_current_fw | default('') }}"
+          upgrade_firmware: "{{ rb_upgrade_fw | default('') }}"
+          upgrade_needed: >-
+            {{
+              has_routerboard | bool
+              and rb_current_fw | length > 0
+              and rb_upgrade_fw | length > 0
+              and rb_current_fw != rb_upgrade_fw
+            }}
 
     - name: Skip RouterBOARD firmware update on x86 builds
       ansible.builtin.debug:
@@ -105,7 +121,6 @@
       changed_when: false
       check_mode: false
       delegate_to: localhost
-      no_log: true
 
     - name: Read current RouterBOARD firmware (fails gracefully on x86)
       ansible.builtin.command: >
@@ -117,27 +132,24 @@
       failed_when: false
       check_mode: false
       delegate_to: localhost
-      no_log: true
 
-    - name: Extract final RouterOS version
+    - name: Extract final versions
       ansible.builtin.set_fact:
         final_ros_version: >-
           {{ (ros_version_check.stdout | default(''))
              | regex_findall('version[:] (.*)')
-             | first | default('unknown', true) }}
+             | first | default('unknown', true) | trim }}
         final_rb_version: >-
           {{ (rb_firmware_check.stdout | default(''))
              | regex_findall('current-firmware[:] (.*)')
-             | first | default('unknown', true) }}
+             | first | default('unknown', true) | trim }}
 
-    - name: Show final RouterOS version
+    - name: Show final result
       ansible.builtin.debug:
-        msg: "RouterOS: {{ final_ros_version }}"
-
-    - name: Show final RouterBOARD firmware
-      ansible.builtin.debug:
-        msg: >-
-          RouterBOARD: {{
-            has_routerboard | bool
-            | ternary(final_rb_version, 'not applicable (no RouterBOARD / x86)')
-          }}
+        msg:
+          RouterOS: "{{ final_ros_version }}"
+          RouterBOARD: >-
+            {{
+              has_routerboard | bool
+              | ternary(final_rb_version, 'not applicable (no RouterBOARD / x86)')
+            }}
