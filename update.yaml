@@ -53,6 +53,12 @@
       ansible.builtin.set_fact:
         has_routerboard: "{{ 'current-firmware' in (rb_firmware_info.stdout | default('')) }}"
 
+    - name: Extract current and upgrade RouterBOARD firmware versions
+      ansible.builtin.set_fact:
+        rb_current_fw: "{{ rb_firmware_info.stdout | regex_search('current-firmware[:] (.*)', '\\1') | first | default('') }}"
+        rb_upgrade_fw: "{{ rb_firmware_info.stdout | regex_search('upgrade-firmware[:] (.*)', '\\1') | first | default('') }}"
+      when: has_routerboard
+
     - name: Skip RouterBOARD firmware update on x86 builds
       ansible.builtin.debug:
         msg: "No RouterBOARD detected (e.g. x86 build) - skipping firmware update."
@@ -65,8 +71,7 @@
         '/system routerboard upgrade'
       when:
         - has_routerboard
-        - (rb_firmware_info.stdout | regex_search('current-firmware: (.*)') | regex_replace('current-firmware: ', '')) !=
-          (rb_firmware_info.stdout | regex_search('upgrade-firmware: (.*)') | regex_replace('upgrade-firmware: ', ''))
+        - rb_current_fw != rb_upgrade_fw
       register: rb_firmware_upgrade
       delegate_to: localhost
       no_log: true
@@ -108,13 +113,13 @@
         msg:
           RouterOS: >-
             {{ ros_version_check.stdout
-               | regex_search('version: (.*)')
-               | regex_replace('version: ', '') }}
+               | regex_search('version[:] (.*)', '\\1')
+               | first | default('unknown') }}
           RouterBOARD: >-
             {{ has_routerboard
                | ternary(
                    (rb_firmware_check.stdout
-                    | regex_search('current-firmware: (.*)')
-                    | regex_replace('current-firmware: ', '')),
+                    | regex_search('current-firmware[:] (.*)', '\\1')
+                    | first | default('unknown')),
                    'not applicable (no RouterBOARD / x86)'
                  ) }}
