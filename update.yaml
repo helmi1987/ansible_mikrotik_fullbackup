@@ -7,26 +7,40 @@
   tasks:
     # --- RouterOS update ---
 
-    - name: Check for available RouterOS update
+    - name: Check for available RouterOS update (with internal wait)
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}'
         ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
-        '/system package update check-for-updates once'
+        '/system package update check-for-updates once; :delay 10s; /system package update print'
       register: ros_update_check
       changed_when: false
       check_mode: false
       delegate_to: localhost
 
-    - name: Show RouterOS update check result
+    - name: Show RouterOS update status
       ansible.builtin.debug:
         msg: "{{ ros_update_check.stdout_lines | default([]) }}"
+
+    - name: Determine whether a RouterOS update is available
+      ansible.builtin.set_fact:
+        ros_update_available: >-
+          {{
+            ('status:' in (ros_update_check.stdout | default('')))
+            and ('no new version' not in (ros_update_check.stdout | default('')))
+            and ('finding out' not in (ros_update_check.stdout | default('')))
+            and ('could not' not in (ros_update_check.stdout | default('')))
+          }}
+
+    - name: Show decision for RouterOS update
+      ansible.builtin.debug:
+        msg: "RouterOS update available: {{ ros_update_available }}"
 
     - name: Install RouterOS update if a new version is available
       ansible.builtin.command: >
         sshpass -p '{{ ansible_ssh_pass }}'
         ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
         '/system package update install'
-      when: "'status: new version is available' in (ros_update_check.stdout | default(''))"
+      when: ros_update_available | bool
       register: ros_update_install
       delegate_to: localhost
       no_log: true
@@ -121,6 +135,7 @@
       changed_when: false
       check_mode: false
       delegate_to: localhost
+      no_log: true
 
     - name: Read current RouterBOARD firmware (fails gracefully on x86)
       ansible.builtin.command: >
@@ -132,6 +147,7 @@
       failed_when: false
       check_mode: false
       delegate_to: localhost
+      no_log: true
 
     - name: Extract final versions
       ansible.builtin.set_fact:
