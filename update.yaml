@@ -1,0 +1,100 @@
+---
+- name: MikroTik RouterOS & RouterBOARD Update
+  hosts: mikrotik
+  gather_facts: no
+  serial: 1  # Wichtig: Serielle Ausführung, um PoE-Ausfälle zu vermeiden
+
+  tasks:
+    # 1. Backup vor dem Update (optional, aber empfohlen)
+    - name: Backup vor dem Update erstellen
+      ansible.builtin.include_tasks: backup.yml
+      when: create_backup_before_update | default(true)
+
+    # 2. RouterOS-Update durchführen
+    - name: Prüfen, ob ein RouterOS-Update verfügbar ist
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}'
+        ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
+        '/system package update check-for-updates once'
+      register: ros_update_check
+      changed_when: false
+      delegate_to: localhost
+      no_log: true
+
+    - name: RouterOS-Update installieren (falls verfügbar)
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}'
+        ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
+        '/system package update install'
+      when: "'status: new version is available' in ros_update_check.stdout"
+      register: ros_update_install
+      delegate_to: localhost
+      no_log: true
+
+    - name: Warten auf Neustart nach RouterOS-Update
+      ansible.builtin.wait_for:
+        host: "{{ inventory_hostname }}"
+        port: "{{ ansible_port }}"
+        delay: 30
+        timeout: 300
+      when: ros_update_install is changed
+      delegate_to: localhost
+
+    # 3. RouterBOARD-Firmware-Update durchführen
+    - name: Prüfen, ob ein RouterBOARD-Firmware-Update verfügbar ist
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}'
+        ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
+        '/system routerboard print'
+      register: rb_firmware_info
+      changed_when: false
+      delegate_to: localhost
+      no_log: true
+
+    - name: RouterBOARD-Firmware-Update durchführen
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}'
+        ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
+        '/system routerboard upgrade'
+      when: >
+        (rb_firmware_info.stdout | regex_search('current-firmware: (.*)') | regex_replace('current-firmware: ', '')) !=
+        (rb_firmware_info.stdout | regex_search('upgrade-firmware: (.*)') | regex_replace('upgrade-firmware: ', ''))
+      register: rb_firmware_upgrade
+      delegate_to: localhost
+      no_log: true
+
+    - name: Warten auf Neustart nach RouterBOARD-Update
+      ansible.builtin.wait_for:
+        host: "{{ inventory_hostname }}"
+        port: "{{ ansible_port }}"
+        delay: 30
+        timeout: 300
+      when: rb_firmware_upgrade is changed
+      delegate_to: localhost
+
+    # 4. Kontrolle: Versionen prüfen
+    - name: Aktuelle RouterOS-Version auslesen
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}'
+        ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
+        '/system resource print'
+      register: ros_version_check
+      changed_when: false
+      delegate_to: localhost
+      no_log: true
+
+    - name: Aktuelle RouterBOARD-Firmware auslesen
+      ansible.builtin.command: >
+        sshpass -p '{{ ansible_ssh_pass }}'
+        ssh -o StrictHostKeyChecking=no -p {{ ansible_port }} {{ ansible_user }}@{{ inventory_hostname }}
+        '/system routerboard print'
+      register: rb_firmware_check
+      changed_when: false
+      delegate_to: localhost
+      no_log: true
+
+    - name: Ergebnis anzeigen
+      ansible.builtin.debug:
+        msg: >
+          RouterOS-Version: {{ ros_version_check.stdout | regex_search('version: (.*)') | regex_replace('version: ', '') }},
+          RouterBOARD-Firmware: {{ rb_firmware_check.stdout | regex_search('current-firmware: (.*)') | regex_replace('current-firmware: ', '') }}
